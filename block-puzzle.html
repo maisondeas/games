@@ -70,6 +70,33 @@
   const newRecordEl = document.getElementById('newRecord');
   const overMsg = document.getElementById('overMsg');
 
+  // ---- 効果音(合成音・ファイル不要) ----
+  let audio = null;
+  function initAudio() {
+    try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  function beep(freq, dur, type = 'sine', vol = 0.14, delay = 0) {
+    if (!audio) return;
+    try {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = type; o.frequency.value = freq;
+      const t0 = audio.currentTime + delay;
+      g.gain.setValueAtTime(vol, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      o.connect(g); g.connect(audio.destination);
+      o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+  }
+  function sfxPick() { beep(520, 0.05, 'sine', 0.08); }
+  function sfxPlace() { beep(300, 0.07, 'square', 0.10); }
+  function sfxInvalid() { beep(160, 0.12, 'sawtooth', 0.08); }
+  function sfxLine(lines, combo) {
+    const notes = [523, 659, 784, 988, 1175, 1568];
+    const n = Math.min(lines + (combo > 1 ? 1 : 0), notes.length);
+    for (let i = 0; i < n; i++) beep(notes[i], 0.16, 'sine', 0.14, i * 0.06);
+  }
+  function sfxOver() { beep(300, 0.18, 'sawtooth', 0.12); beep(180, 0.3, 'sawtooth', 0.12, 0.14); }
+
   let W = 0, H = 0, DPR = 1;
   const N = 8;                       // 盤面 8x8
   let cell = 40, gridX = 0, gridY = 0, trayY = 0, traySlotW = 0;
@@ -154,6 +181,7 @@
   function place(p, r, c) {
     for (const [dr, dc] of p.cells) board[r + dr][c + dc] = p.col;
     let gained = p.cells.length;
+    sfxPlace();
 
     // そろった行・列を同時判定
     const fullRows = [], fullCols = [];
@@ -170,6 +198,7 @@
       const bonus = lines * 10 * lines + (combo > 1 ? combo * 10 : 0);
       gained += bonus;
       shake = 6 + lines * 2;
+      sfxLine(lines, combo);
       const msg = (lines >= 2 ? `${lines}ライン! ` : '') + (combo > 1 ? `コンボ×${combo} ` : '') + `+${bonus}`;
       floats.push({ x: gridX + cell * N / 2, y: gridY + cell * (fullRows[0] ?? 4), msg, life: 1, col: '#FFB454' });
     } else {
@@ -185,6 +214,7 @@
     // 残りピースがどこにも置けなければ終了
     if (tray.filter(Boolean).every(p => !anyPlacement(p))) {
       state = 'over';
+      sfxOver();
       finalEl.textContent = score;
       const isRecord = score > best;
       if (isRecord) best = score;
@@ -207,6 +237,7 @@
   document.getElementById('homeBtn').addEventListener('pointerdown', e => e.stopPropagation());
 
   window.addEventListener('pointerdown', e => {
+    initAudio();
     const { x, y } = pointerPos(e);
     if (state === 'title') { state = 'play'; titleEl.classList.add('hidden'); reset(); return; }
     if (state === 'over') { state = 'play'; overEl.classList.add('hidden'); reset(); return; }
@@ -215,6 +246,7 @@
       const r = trayRect(i);
       if (x >= r.x && x <= r.x + r.w && y >= r.y - 10 && y <= r.y + r.h + 10) {
         drag = { slot: i, piece: p, px: x, py: y };
+        sfxPick();
         return;
       }
     }
@@ -248,6 +280,8 @@
     if (canPlace(p, r, c)) {
       place(p, r, c);
       afterPlace(slot);
+    } else {
+      sfxInvalid();
     }
   });
   window.addEventListener('pointercancel', () => { drag = null; });
