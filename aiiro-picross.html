@@ -671,6 +671,15 @@
     // 罫線(5マスごとに太線)
     for (let i = 0; i <= N; i++) {
       const bold = i % 5 === 0;
+      if (bold) {
+        // 太線の下にクリーム色のハロー(縁取り)を敷き、塗りマスの色と同化しないようにする
+        ctx.strokeStyle = 'rgba(239,233,220,0.9)';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(bx + i * cell, by); ctx.lineTo(bx + i * cell, by + N * cell);
+        ctx.moveTo(bx, by + i * cell); ctx.lineTo(bx + N * cell, by + i * cell);
+        ctx.stroke();
+      }
       ctx.strokeStyle = bold ? '#1F3A5F' : 'rgba(31,58,95,0.25)';
       ctx.lineWidth = bold ? 2 : 1;
       ctx.beginPath();
@@ -753,12 +762,18 @@
   function updateLineCompletion() {
     for (let r = 0; r < N; r++) {
       const id = 'r' + r, ok = lineOk(grid[r], rowClues[r]);
-      if (ok && !completedLines.has(id)) { completedLines.add(id); sfxLineDone(); }
+      if (ok && !completedLines.has(id)) {
+        completedLines.add(id); sfxLineDone();
+        for (let c = 0; c < N; c++) if (grid[r][c] === EMPTY) grid[r][c] = MARK;
+      }
       else if (!ok && completedLines.has(id)) completedLines.delete(id);
     }
     for (let c = 0; c < N; c++) {
       const id = 'c' + c, ok = lineOk(grid.map(row => row[c]), colClues[c]);
-      if (ok && !completedLines.has(id)) { completedLines.add(id); sfxLineDone(); }
+      if (ok && !completedLines.has(id)) {
+        completedLines.add(id); sfxLineDone();
+        for (let r = 0; r < N; r++) if (grid[r][c] === EMPTY) grid[r][c] = MARK;
+      }
       else if (!ok && completedLines.has(id)) completedLines.delete(id);
     }
   }
