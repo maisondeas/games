@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ウォーターソート</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #2E2438; }
+  body {
+    font-family: "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "Yu Gothic", sans-serif;
+    touch-action: manipulation;
+    -webkit-user-select: none; user-select: none;
+    color: #F5EFFF;
+  }
+  #game { display: block; width: 100%; height: 100%; }
+
+  #topbar {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+  }
+  #topbar.hidden { display: none; }
+  #lvLabel { font-size: 17px; font-weight: bold; letter-spacing: 0.05em; }
+  #lvLabel small { font-size: 11px; opacity: 0.7; font-weight: normal; margin-left: 8px; }
+  .actions { display: flex; gap: 8px; }
+  .actions button {
+    border: none; border-radius: 12px; padding: 9px 15px;
+    background: rgba(245, 239, 255, 0.14); color: #F5EFFF;
+    font-size: 13px; font-weight: bold;
+  }
+  .actions button:active { background: rgba(245, 239, 255, 0.3); }
+
+  .ui {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: rgba(30, 22, 42, 0.9);
+  }
+  .ui.hidden { display: none; }
+  h1 { font-size: 32px; letter-spacing: 0.1em; }
+  .sub { margin-top: 14px; font-size: 15px; line-height: 2; opacity: 0.92; }
+  .tap {
+    margin-top: 28px; font-size: 16px; font-weight: bold;
+    padding: 13px 40px; border-radius: 999px; border: none;
+    background: #F15BB5; color: #3D0F2A;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+  .big { font-size: 54px; margin-bottom: 8px; }
+
+  .left-group { display: flex; align-items: center; gap: 10px; }
+  .home-btn {
+    font-size: 12px; font-weight: bold;
+    padding: 8px 11px; border-radius: 999px;
+    background: rgba(245,239,255,0.14); color: #F5EFFF;
+    text-decoration: none; flex-shrink: 0;
+  }
+  .home-btn:active { background: rgba(245,239,255,0.3); }
+  .home-link {
+    display: inline-block; margin-top: 18px;
+    font-size: 13px; font-weight: bold; opacity: 0.75;
+    text-decoration: underline; text-underline-offset: 3px; color: inherit;
+  }
+  .home-link:active { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="topbar" class="hidden">
+  <div class="left-group">
+    <a class="home-btn" href="index.html">☰</a>
+    <div id="lvLabel">レベル 1<small id="moveLabel">0手</small></div>
+  </div>
+  <div class="actions">
+    <button id="undoBtn">↩ もどす</button>
+    <button id="resetBtn">リセット</button>
+  </div>
+</div>
+
+<div id="title" class="ui">
+  <h1>ウォーターソート</h1>
+  <div class="sub">ボトルをタップして色水をうつしかえ、<br>すべてのボトルを1色ずつにそろえましょう。<br>同じ色の上か、空のボトルにだけ注げます。</div>
+  <button class="tap" id="startBtn">はじめる</button>
+  <a class="home-link" href="index.html">← ゲーム一覧へ戻る</a>
+</div>
+
+<div id="clear" class="ui hidden">
+  <div class="big">✨</div>
+  <h1>レベルクリア!</h1>
+  <div class="sub" id="clearMsg"></div>
+  <button class="tap" id="nextBtn">つぎのレベルへ</button>
+  <a class="home-link" href="index.html">← ゲーム一覧へ戻る</a>
+</div>
+
+<script>
+(() => {
+  const CAP = 4;
+  const COLORS = ['#E4572E', '#F3C13A', '#76B041', '#17BEBB', '#3E92CC', '#9B5DE5', '#F15BB5', '#C1121F', '#B07D62'];
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const topbar = document.getElementById('topbar');
+  const titleEl = document.getElementById('title');
+  const clearEl = document.getElementById('clear');
+  const lvLabel = document.getElementById('lvLabel');
+  const moveLabel = document.getElementById('moveLabel');
+  const clearMsg = document.getElementById('clearMsg');
+
+  // ---- 効果音(合成音・ファイル不要) ----
+  let audio = null;
+  function initAudio() {
+    try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  function beep(freq, dur, type = 'sine', vol = 0.12, delay = 0) {
+    if (!audio) return;
+    try {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = type; o.frequency.value = freq;
+      const t0 = audio.currentTime + delay;
+      g.gain.setValueAtTime(vol, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      o.connect(g); g.connect(audio.destination);
+      o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+  }
+  function sfxSelect() { beep(660, 0.06, 'sine', 0.1); }
+  function sfxTiltStart() { beep(520, 0.07, 'sine', 0.06); }
+  // 注いでいる間、フィルターをかけたノイズで本物の水音を鳴らし続ける
+  let pourNoiseSource = null, pourNoiseGain = null;
+  function sfxPourStart(durSec) {
+    if (!audio) return;
+    stopPourSound();
+    const now = audio.currentTime;
+
+    // サラサラ~ザーッという流水音の土台(ノイズ+バンドパスフィルター)
+    const bufferSize = Math.max(1, Math.floor(audio.sampleRate * durSec));
+    const buffer = audio.createBuffer(1, bufferSize, audio.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audio.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = audio.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 1.6;
+    filter.frequency.setValueAtTime(2200, now);
+    filter.frequency.linearRampToValueAtTime(3200, now + durSec * 0.5);
+    filter.frequency.linearRampToValueAtTime(2400, now + durSec);
+
+    const gain = audio.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.07, now + 0.05);
+    gain.gain.setValueAtTime(0.07, now + Math.max(durSec - 0.12, 0.05));
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + durSec);
+
+    noise.connect(filter); filter.connect(gain); gain.connect(audio.destination);
+    noise.start(now); noise.stop(now + durSec + 0.05);
+    pourNoiseSource = noise; pourNoiseGain = gain;
+
+    // ぽたぽたと軽い水滴音をまぜて軽やかさを出す
+    const bubbles = Math.max(1, Math.round(durSec / 0.16));
+    for (let k = 0; k < bubbles; k++) {
+      const t = 0.04 + Math.random() * Math.max(durSec - 0.08, 0.05);
+      beep(900 + Math.random() * 500, 0.035, 'sine', 0.045, t);
+    }
+  }
+  function stopPourSound() {
+    if (pourNoiseGain) {
+      try {
+        const now = audio.currentTime;
+        pourNoiseGain.gain.cancelScheduledValues(now);
+        pourNoiseGain.gain.setValueAtTime(pourNoiseGain.gain.value, now);
+        pourNoiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+      } catch (e) {}
+      pourNoiseGain = null;
+    }
+    if (pourNoiseSource) {
+      try { pourNoiseSource.stop(); } catch (e) {}
+      pourNoiseSource = null;
+    }
+  }
+  function sfxSparkle() { beep(988, 0.1, 'sine', 0.12); beep(1319, 0.14, 'sine', 0.1, 0.07); }
+  function sfxClear() {
+    [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.18, 'sine', 0.14, i * 0.09));
+  }
+
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  let state = 'title';
+  let level = 1;
+  let bottles = [];
+  let initial = [];
+  let sel = -1;
+  let moves = 0, history = [];
+  let anim = null;   // {src,dst,color,n,phase:'move'|'pour'|'back',t}
+  let sparks = [];
+  let pendingSpark = -1;
+
+  // ---- レベル生成 ----
+  function levelConfig(lv) {
+    const colors = Math.min(3 + Math.floor((lv - 1) / 2), COLORS.length);
+    return { colors, bottles: colors + 2 };
+  }
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function randomState(cfg) {
+    const units = [];
+    for (let c = 0; c < cfg.colors; c++) for (let k = 0; k < CAP; k++) units.push(c);
+    shuffle(units);
+    const bs = [];
+    for (let i = 0; i < cfg.colors; i++) bs.push(units.slice(i * CAP, i * CAP + CAP));
+    bs.push([], []);
+    return bs;
+  }
+
+  // 解けるかどうかの検証(探索)
+  function solvable(bs) {
+    const key = s => s.map(b => b.join('.')).sort().join('|');
+    const done = s => s.every(b => b.length === 0 || (b.length === CAP && b.every(c => c === b[0])));
+    const seen = new Set([key(bs)]);
+    const stack = [bs.map(b => [...b])];
+    let nodes = 0;
+    while (stack.length) {
+      if (++nodes > 200000) return false;
+      const s = stack.pop();
+      if (done(s)) return true;
+      for (let i = 0; i < s.length; i++) {
+        const a = s[i];
+        if (!a.length) continue;
+        const top = a[a.length - 1];
+        let run = 1;
+        while (run < a.length && a[a.length - 1 - run] === top) run++;
+        if (a.length === CAP && run === CAP) continue;
+        const uniform = run === a.length;
+        for (let j = 0; j < s.length; j++) {
+          if (i === j) continue;
+          const b = s[j];
+          if (b.length >= CAP) continue;
+          if (b.length && b[b.length - 1] !== top) continue;
+          if (!b.length && uniform) continue;
+          const amt = Math.min(run, CAP - b.length);
+          const ns = s.map(x => [...x]);
+          for (let k = 0; k < amt; k++) ns[j].push(top);
+          ns[i].length -= amt;
+          const kk = key(ns);
+          if (!seen.has(kk)) { seen.add(kk); stack.push(ns); }
+        }
+      }
+    }
+    return false;
+  }
+
+  function generateLevel(lv) {
+    const cfg = levelConfig(lv);
+    for (let tries = 0; tries < 60; tries++) {
+      const bs = randomState(cfg);
+      if (bs.some(b => b.length === CAP && b.every(c => c === b[0]))) continue;
+      if (solvable(bs)) return bs;
+    }
+    return randomState(cfg);
+  }
+
+  function startLevel(lv) {
+    level = lv;
+    bottles = generateLevel(lv);
+    initial = bottles.map(b => [...b]);
+    sel = -1; moves = 0; history = []; anim = null; sparks = []; pendingSpark = -1;
+    lvLabel.childNodes[0].textContent = `レベル ${lv}`;
+    moveLabel.textContent = '0手';
+    state = 'play';
+  }
+
+  // ---- 操作 ----
+  function topRun(b) {
+    if (!b.length) return { color: -1, run: 0 };
+    const top = b[b.length - 1];
+    let run = 1;
+    while (run < b.length && b[b.length - 1 - run] === top) run++;
+    return { color: top, run };
+  }
+
+  function canPour(i, j) {
+    const a = bottles[i], b = bottles[j];
+    if (!a.length || b.length >= CAP) return false;
+    const t = topRun(a);
+    return !b.length || b[b.length - 1] === t.color;
+  }
+
+  function pour(i, j) {
+    const t = topRun(bottles[i]);
+    const amt = Math.min(t.run, CAP - bottles[j].length);
+    history.push(bottles.map(b => [...b]));
+    for (let k = 0; k < amt; k++) bottles[j].push(t.color);
+    bottles[i].length -= amt;
+    moves++;
+    moveLabel.textContent = `${moves}手`;
+    anim = { src: i, dst: j, color: t.color, n: amt, phase: 'move', t: 0 };
+
+    const d = bottles[j];
+    if (d.length === CAP && d.every(c => c === d[0])) pendingSpark = j;
+
+    if (bottles.every(b => !b.length || (b.length === CAP && b.every(c => c === b[0])))) {
+      setTimeout(() => {
+        state = 'clear';
+        sfxClear();
+        clearMsg.textContent = `レベル${level}を ${moves}手でクリアしました`;
+        clearEl.classList.remove('hidden');
+        topbar.classList.add('hidden');
+      }, 1100);
+    }
+  }
+
+  function undo() {
+    const h = history.pop();
+    if (!h) return;
+    bottles = h;
+    moves = Math.max(0, moves - 1);
+    moveLabel.textContent = `${moves}手`;
+    sel = -1; anim = null; pendingSpark = -1;
+    stopPourSound();
+  }
+
+  // ---- レイアウト ----
+  function layout() {
+    const n = bottles.length;
+    const perRow = n <= 6 ? n : Math.ceil(n / 2);
+    const rows = n <= 6 ? 1 : 2;
+    const bw = Math.min(52, Math.floor((W - 30) / perRow) - 12);
+    const bh = Math.min(bw * 3.4, H * 0.3);
+    const areaH = rows === 1 ? bh : bh * 2 + 70;
+    const startY = Math.max(H * 0.2, (H - areaH) / 2 + 30);
+    const pos = [];
+    for (let i = 0; i < n; i++) {
+      const row = i < perRow ? 0 : 1;
+      const col = row === 0 ? i : i - perRow;
+      const rowCount = row === 0 ? perRow : n - perRow;
+      const gx = Math.floor((W - rowCount * bw) / (rowCount + 1));
+      pos.push({ x: gx + col * (bw + gx), y: startY + row * (bh + 70), w: bw, h: bh });
+    }
+    return pos;
+  }
+
+  // ---- 描画 ----
+  const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ボトルを「口の中央 = (0,0)」のローカル座標で描く
+  function bottlePathLocal(w, h) {
+    const r = w / 2;
+    ctx.beginPath();
+    ctx.moveTo(-w / 2, 0);
+    ctx.lineTo(-w / 2, h - r);
+    ctx.arc(0, h - r, r, Math.PI, 0, true);
+    ctx.lineTo(w / 2, 0);
+  }
+
+  function unitsFor(i) {
+    const arr = bottles[i].map(c => ({ c, s: 1 }));
+    if (!anim) return arr;
+    if (i === anim.dst) {
+      const s = anim.phase === 'move' ? 0 : anim.phase === 'pour' ? easeInOut(anim.t) : 1;
+      for (let k = 0; k < anim.n; k++) {
+        const u = arr[arr.length - 1 - k];
+        if (u) u.s = s;
+      }
+    }
+    if (i === anim.src) {
+      const s = anim.phase === 'move' ? 1 : anim.phase === 'pour' ? 1 - easeInOut(anim.t) : 0;
+      if (s > 0) for (let k = 0; k < anim.n; k++) arr.push({ c: anim.color, s });
+    }
+    return arr;
+  }
+
+  function drawBottleLocal(i, w, h, selected) {
+    const unit = h / (CAP + 0.4);
+    ctx.save();
+    bottlePathLocal(w, h);
+    ctx.lineTo(-w / 2, 0);
+    ctx.clip();
+    let yy = h;
+    for (const u of unitsFor(i)) {
+      const uh = unit * u.s;
+      yy -= uh;
+      ctx.fillStyle = COLORS[u.c];
+      ctx.fillRect(-w / 2, yy, w, uh + 1);
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.14)';
+    ctx.fillRect(-w / 2 + w * 0.16, 0, w * 0.13, h);
+    ctx.restore();
+
+    bottlePathLocal(w, h);
+    ctx.strokeStyle = selected ? '#F5EFFF' : 'rgba(245,239,255,0.45)';
+    ctx.lineWidth = selected ? 3 : 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-w / 2 - 3, 0); ctx.lineTo(w / 2 + 3, 0);
+    ctx.stroke();
+  }
+
+  function drawBottleAt(i, p) {
+    const lift = sel === i ? -16 : 0;
+    ctx.save();
+    ctx.translate(p.x + p.w / 2, p.y + lift);
+    drawBottleLocal(i, p.w, p.h, sel === i);
+    ctx.restore();
+  }
+
+  let lastNow = 0;
+  function draw(now) {
+    const dt = Math.min((now - lastNow) / 1000, 0.05);
+    lastNow = now;
+
+    ctx.fillStyle = '#2E2438';
+    ctx.fillRect(0, 0, W, H);
+    if (state === 'title') { requestAnimationFrame(draw); return; }
+
+    // アニメ進行
+    if (anim) {
+      const durs = { move: 0.22, pour: 0.16 + anim.n * 0.1, back: 0.22 };
+      anim.t += dt / durs[anim.phase];
+      if (anim.t >= 1) {
+        if (anim.phase === 'move') {
+          anim.phase = 'pour'; anim.t = 0;
+          sfxTiltStart();
+          sfxPourStart(durs.pour);
+        }
+        else if (anim.phase === 'pour') {
+          anim.phase = 'back'; anim.t = 0;
+          stopPourSound();
+          if (pendingSpark >= 0) { sparks.push({ bottle: pendingSpark, t: 0 }); pendingSpark = -1; sfxSparkle(); }
+        }
+        else anim = null;
+      }
+    }
+
+    const pos = layout();
+
+    // 通常のボトル(注ぎ中のボトル以外)
+    for (let i = 0; i < bottles.length; i++) {
+      if (anim && i === anim.src) continue;
+      drawBottleAt(i, pos[i]);
+    }
+
+    // 注ぎ中のボトル
+    if (anim) {
+      const sp = pos[anim.src], dp = pos[anim.dst];
+      const dir = (dp.x >= sp.x) ? 1 : -1;
+      const homeX = sp.x + sp.w / 2, homeY = sp.y;
+      const pourX = dp.x + dp.w / 2 - dir * dp.w * 0.4;
+      const pourY = dp.y - 26;
+      const k = anim.phase === 'move' ? easeInOut(anim.t)
+              : anim.phase === 'back' ? 1 - easeInOut(anim.t) : 1;
+      const mx = lerp(homeX, pourX, k);
+      const my = lerp(homeY, pourY, k);
+      const ang = dir * 1.75 * k;
+
+      // 水の流れ
+      if (anim.phase === 'pour') {
+        const unit = dp.h / (CAP + 0.4);
+        const visUnits = bottles[anim.dst].length - anim.n * (1 - easeInOut(anim.t));
+        const surfaceY = dp.y + dp.h - unit * visUnits;
+        ctx.strokeStyle = COLORS[anim.color];
+        ctx.lineWidth = dp.w * 0.2;
+        ctx.lineCap = 'round';
+        ctx.globalAlpha = 0.95;
+        ctx.beginPath();
+        ctx.moveTo(mx + dir * 4, my + 3);
+        ctx.quadraticCurveTo(dp.x + dp.w / 2, my + 14, dp.x + dp.w / 2, surfaceY);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.save();
+      ctx.translate(mx, my);
+      ctx.rotate(ang);
+      drawBottleLocal(anim.src, sp.w, sp.h, false);
+      ctx.restore();
+    }
+
+    // 完成キラキラ
+    for (const s of sparks) {
+      s.t += dt * 1.6;
+      const p = pos[s.bottle];
+      const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2;
+        const r = 20 + s.t * 46;
+        ctx.globalAlpha = Math.max(1 - s.t, 0);
+        ctx.fillStyle = '#F3C13A';
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    sparks = sparks.filter(s => s.t < 1);
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(t => { lastNow = t; requestAnimationFrame(draw); });
+
+  // ---- 入力 ----
+  canvas.addEventListener('pointerdown', e => {
+    if (state !== 'play' || anim) return;
+    const pos = layout();
+    let hit = -1;
+    for (let i = 0; i < pos.length; i++) {
+      const p = pos[i];
+      if (e.clientX >= p.x - 8 && e.clientX <= p.x + p.w + 8 &&
+          e.clientY >= p.y - 24 && e.clientY <= p.y + p.h + 8) { hit = i; break; }
+    }
+    if (hit < 0) { sel = -1; return; }
+    if (sel < 0) {
+      if (bottles[hit].length) { sel = hit; sfxSelect(); }
+    } else if (sel === hit) {
+      sel = -1;
+    } else if (canPour(sel, hit)) {
+      const s = sel;
+      sel = -1;
+      pour(s, hit);
+    } else {
+      if (bottles[hit].length) { sel = hit; sfxSelect(); } else sel = -1;
+    }
+  });
+
+  document.getElementById('undoBtn').addEventListener('pointerdown', e => { e.stopPropagation(); undo(); });
+  document.getElementById('resetBtn').addEventListener('pointerdown', e => {
+    e.stopPropagation();
+    bottles = initial.map(b => [...b]);
+    sel = -1; moves = 0; history = []; anim = null; pendingSpark = -1;
+    stopPourSound();
+    moveLabel.textContent = '0手';
+  });
+  document.getElementById('startBtn').addEventListener('pointerdown', () => {
+    initAudio();
+    titleEl.classList.add('hidden');
+    topbar.classList.remove('hidden');
+    startLevel(1);
+  });
+  document.getElementById('nextBtn').addEventListener('pointerdown', () => {
+    clearEl.classList.add('hidden');
+    topbar.classList.remove('hidden');
+    startLevel(level + 1);
+  });
+})();
+</script>
+</body>
+</html>

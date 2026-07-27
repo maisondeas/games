@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ミニゲームコーナー | Maison de As</title>
+<meta name="description" content="いつでも遊べるミニゲーム。ウォーターソート・ピクロス・もぐらたたき・ブロックパズル。インストール不要、ぜんぶ無料です。">
+<style>
+  :root {
+    --night: #222A4E;
+    --night-deep: #1A2140;
+    --cream: #F5F1E6;
+    --star: #FFC95C;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 18% 12%, rgba(255,201,92,0.10), transparent 34%),
+      radial-gradient(circle at 84% 78%, rgba(241,91,181,0.08), transparent 40%),
+      linear-gradient(180deg, var(--night) 0%, var(--night-deep) 100%);
+    font-family: "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "Yu Gothic", sans-serif;
+    color: var(--cream);
+    padding: 40px 18px 48px;
+  }
+
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 34px; }
+  .eyebrow {
+    display: inline-block;
+    font-size: 12px; letter-spacing: 0.35em; font-weight: bold;
+    color: var(--star); margin-bottom: 12px;
+  }
+  h1 { font-size: 30px; letter-spacing: 0.12em; }
+  h1 .dot { color: var(--star); }
+  .lead { margin-top: 12px; font-size: 14px; line-height: 1.9; opacity: 0.82; }
+
+  .games { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 560px) { .games { grid-template-columns: 1fr 1fr; } }
+
+  .card {
+    display: flex; align-items: center; gap: 16px;
+    border-radius: 20px; padding: 20px 18px;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+    min-height: 112px;
+  }
+  .card:active { transform: scale(0.97); }
+  @media (hover: hover) {
+    .card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.36); }
+  }
+  .card:focus-visible { outline: 3px solid var(--star); outline-offset: 3px; }
+
+  .info { flex: 1; min-width: 0; }
+  .card h2 { font-size: 19px; letter-spacing: 0.06em; }
+  .card p { margin-top: 6px; font-size: 12.5px; line-height: 1.75; opacity: 0.88; }
+  .tag {
+    display: inline-block; margin-top: 9px;
+    font-size: 11px; font-weight: bold;
+    padding: 3px 10px; border-radius: 999px;
+  }
+
+  .motif { flex-shrink: 0; width: 68px; height: 68px; position: relative; }
+
+  /* --- ウォーターソート --- */
+  .c-sort { background: #2E2438; color: #F5EFFF; }
+  .c-sort .tag { background: rgba(241,91,181,0.18); color: #F794D0; }
+  .tube {
+    position: absolute; bottom: 4px; width: 22px; height: 54px;
+    border: 2.5px solid rgba(245,239,255,0.55); border-top: none;
+    border-radius: 0 0 11px 11px; overflow: hidden;
+    display: flex; flex-direction: column-reverse;
+  }
+  .tube i { display: block; width: 100%; height: 12px; }
+  .tube.t1 { left: 8px; }
+  .tube.t2 { right: 8px; bottom: 10px; }
+
+  /* --- ピクロス --- */
+  .c-pic { background: #EFE9DC; color: #1F3A5F; }
+  .c-pic .tag { background: rgba(31,58,95,0.12); color: #1F3A5F; }
+  .pic-grid {
+    position: absolute; inset: 8px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+  }
+  .pic-grid i { border: 2px solid #1F3A5F; border-radius: 4px; }
+  .pic-grid i.f { background: #1F3A5F; }
+
+  /* --- もぐらたたき --- */
+  .c-mole { background: #8FCB6B; color: #3A5228; }
+  .c-mole .tag { background: rgba(58,82,40,0.15); color: #3A5228; }
+  .hole {
+    position: absolute; bottom: 6px; left: 6px; right: 6px; height: 16px;
+    background: #3E2A16; border-radius: 50%;
+  }
+  .mole-head {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    width: 38px; height: 34px; background: #8B5A2B;
+    border-radius: 19px 19px 6px 6px;
+  }
+  .mole-head::before, .mole-head::after {
+    content: ""; position: absolute; top: 11px;
+    width: 6px; height: 6px; border-radius: 50%; background: #2B1B0E;
+  }
+  .mole-head::before { left: 9px; }
+  .mole-head::after { right: 9px; }
+  .mole-nose {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    width: 9px; height: 9px; border-radius: 50%; background: #E8626A; z-index: 1;
+  }
+
+  /* --- ブロックパズル --- */
+  .c-block { background: #1C2340; color: #F2F0FF; }
+  .c-block .tag { background: rgba(255,180,84,0.18); color: #FFB454; }
+  .blocks { position: absolute; inset: 6px; }
+  .blocks i { position: absolute; width: 24px; height: 24px; border-radius: 6px; }
+  .blocks .b1 { background: #EF6461; left: 0; bottom: 0; }
+  .blocks .b2 { background: #EF6461; left: 0; bottom: 28px; }
+  .blocks .b3 { background: #5FA8D3; left: 28px; bottom: 0; }
+  .blocks .b4 { background: #FFD166; left: 28px; bottom: 28px; }
+
+  footer {
+    margin-top: 40px; text-align: center;
+    font-size: 12px; line-height: 2; opacity: 0.65;
+  }
+  footer a { color: var(--star); text-decoration: none; font-weight: bold; }
+  footer a:active { opacity: 0.7; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card { animation: rise 0.5s ease backwards; }
+    .card:nth-child(2) { animation-delay: 0.07s; }
+    .card:nth-child(3) { animation-delay: 0.14s; }
+    .card:nth-child(4) { animation-delay: 0.21s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="eyebrow">のんびりAI部 by MAISONDEAS</span>
+    <h1>ミニゲームコーナー<span class="dot">.</span></h1>
+    <p class="lead">インストール不要・ぜんぶ無料。<br>すきま時間に、ちょっとひと息どうぞ。</p>
+  </header>
+
+  <nav class="games" aria-label="ゲーム一覧">
+
+    <a class="card c-sort" href="color-sort.html">
+      <div class="info">
+        <h2>ウォーターソート</h2>
+        <p>同じ色の水をびんに集めるパズル。じっくり考える人向け。</p>
+        <span class="tag">パズル・全50レベル</span>
+      </div>
+      <div class="motif" aria-hidden="true">
+        <div class="tube t1"><i style="background:#F15BB5"></i><i style="background:#5FA8D3"></i><i style="background:#FFD166"></i></div>
+        <div class="tube t2"><i style="background:#5FA8D3"></i><i style="background:#F15BB5"></i></div>
+      </div>
+    </a>
+
+    <a class="card c-pic" href="aiiro-picross.html">
+      <div class="info">
+        <h2>あいいろピクロス</h2>
+        <p>数字をヒントにマスをぬって絵を完成させるパズルです。</p>
+        <span class="tag">パズル・お絵かきロジック</span>
+      </div>
+      <div class="motif" aria-hidden="true">
+        <div class="pic-grid">
+          <i class="f"></i><i></i><i class="f"></i>
+          <i></i><i class="f"></i><i></i>
+          <i class="f"></i><i></i><i class="f"></i>
+        </div>
+      </div>
+    </a>
+
+    <a class="card c-mole" href="mogura-tataki.html">
+      <div class="info">
+        <h2>もぐらたたき</h2>
+        <p>30秒の勝負。出てきたモグラをすばやくタップ!</p>
+        <span class="tag">アクション・30秒</span>
+      </div>
+      <div class="motif" aria-hidden="true">
+        <div class="mole-head"></div>
+        <div class="mole-nose"></div>
+        <div class="hole"></div>
+      </div>
+    </a>
+
+    <a class="card c-block" href="block-puzzle.html">
+      <div class="info">
+        <h2>ブロックパズル</h2>
+        <p>ピースを置いて列をそろえて消す、定番の落ちつきパズル。</p>
+        <span class="tag">パズル・エンドレス</span>
+      </div>
+      <div class="motif" aria-hidden="true">
+        <div class="blocks"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i></div>
+      </div>
+    </a>
+
+  </nav>
+
+  <footer>
+    ゲーム中にこのページへ戻るときは、ブラウザの「戻る」をお使いください。<br>
+    <a href="https://nonbiriai.maisondeas.com/" target="_blank" rel="noopener">のんびりAI部 by MAISONDEAS</a>
+  </footer>
+
+</div>
+</body>
+</html>
