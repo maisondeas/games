@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ミニゲームコーナー | のんびりAI部</title>
-<meta name="description" content="いつでも遊べるミニゲーム。ウォーターソート・ピクロス・もぐらたたき・ブロックパズル。インストール不要、ぜんぶ無料です。">
+<meta name="description" content="いつでも遊べるミニゲーム。ソリティア・ブロックパズル・もぐらたたき・ウォーターソート・ピクロス・カラーピクロス。インストール不要、ぜんぶ無料です。">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
@@ -13,10 +13,11 @@
 <link rel="icon" type="image/png" sizes="512x512" href="android-chrome-512x512.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#222A4E">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3491693986834473" crossorigin="anonymous"></script>
 <style>
   :root {
-    --night: #222A4E;
-    --night-deep: #1A2140;
+    --night: #3A4680;
+    --night-deep: #2C3566;
     --cream: #F5F1E6;
     --star: #FFC95C;
   }
@@ -127,6 +128,28 @@
   .blocks .b3 { background: #5FA8D3; left: 28px; bottom: 0; }
   .blocks .b4 { background: #FFD166; left: 28px; bottom: 28px; }
 
+  /* --- ソリティア --- */
+  .c-soli { background: #1B5E42; color: #FCFAF3; }
+  .c-soli .tag { background: rgba(232,199,103,0.20); color: #E8C767; }
+  .cards { position: absolute; inset: 4px; }
+  .cards i {
+    position: absolute; width: 30px; height: 42px; border-radius: 6px;
+    background: #FCFAF3; display: flex; align-items: center; justify-content: center;
+    font-family: Georgia, "Times New Roman", serif; font-size: 16px; font-style: normal;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.28);
+  }
+  .cards i.k1 { left: 2px; top: 16px; transform: rotate(-9deg); color: #21170F; }
+  .cards i.k2 { left: 26px; top: 6px; transform: rotate(7deg); color: #C6403A; }
+
+  /* --- カラーピクロス --- */
+  .c-cpic { background: #F3EDFA; color: #53386B; }
+  .c-cpic .tag { background: rgba(83,56,107,0.12); color: #53386B; }
+  .cpic-grid {
+    position: absolute; inset: 8px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+  }
+  .cpic-grid i { border: 2px solid #53386B; border-radius: 4px; }
+
   footer {
     margin-top: 40px; text-align: center;
     font-size: 12px; line-height: 2; opacity: 0.65;
@@ -139,6 +162,8 @@
     .card:nth-child(2) { animation-delay: 0.07s; }
     .card:nth-child(3) { animation-delay: 0.14s; }
     .card:nth-child(4) { animation-delay: 0.21s; }
+    .card:nth-child(5) { animation-delay: 0.28s; }
+    .card:nth-child(6) { animation-delay: 0.35s; }
     @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
   }
 </style>
@@ -153,6 +178,41 @@
   </header>
 
   <nav class="games" aria-label="ゲーム一覧">
+
+    <a class="card c-soli" href="solitaire.html">
+      <div class="info">
+        <h2>ソリティア</h2>
+        <p>定番のトランプひとり遊び。カードをA→Kの順に揃えましょう。</p>
+        <span class="tag">カード・じっくり派</span>
+      </div>
+      <div class="motif" aria-hidden="true">
+        <div class="cards"><i class="k1">♠</i><i class="k2">♥</i></div>
+      </div>
+    </a>
+
+    <a class="card c-block" href="block-puzzle.html">
+      <div class="info">
+        <h2>ブロックパズル</h2>
+        <p>ピースを置いて列をそろえて消す、定番の落ちつきパズル。</p>
+        <span class="tag">パズル・エンドレス</span>
+      </div>
+      <div class="motif" aria-hidden="true">
+        <div class="blocks"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i></div>
+      </div>
+    </a>
+
+    <a class="card c-mole" href="mogura-tataki.html">
+      <div class="info">
+        <h2>もぐらたたき</h2>
+        <p>30秒の勝負。出てきたモグラをすばやくタップ!</p>
+        <span class="tag">アクション・30秒</span>
+      </div>
+      <div class="motif" aria-hidden="true">
+        <div class="mole-head"></div>
+        <div class="mole-nose"></div>
+        <div class="hole"></div>
+      </div>
+    </a>
 
     <a class="card c-sort" href="color-sort.html">
       <div class="info">
@@ -181,27 +241,18 @@
       </div>
     </a>
 
-    <a class="card c-mole" href="mogura-tataki.html">
+    <a class="card c-cpic" href="color-picross.html">
       <div class="info">
-        <h2>もぐらたたき</h2>
-        <p>30秒の勝負。出てきたモグラをすばやくタップ!</p>
-        <span class="tag">アクション・30秒</span>
+        <h2>カラーピクロス</h2>
+        <p>色つきの数字をヒントに、カラーのドット絵を完成させます。</p>
+        <span class="tag">パズル・全25もん</span>
       </div>
       <div class="motif" aria-hidden="true">
-        <div class="mole-head"></div>
-        <div class="mole-nose"></div>
-        <div class="hole"></div>
-      </div>
-    </a>
-
-    <a class="card c-block" href="block-puzzle.html">
-      <div class="info">
-        <h2>ブロックパズル</h2>
-        <p>ピースを置いて列をそろえて消す、定番の落ちつきパズル。</p>
-        <span class="tag">パズル・エンドレス</span>
-      </div>
-      <div class="motif" aria-hidden="true">
-        <div class="blocks"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i></div>
+        <div class="cpic-grid">
+          <i style="background:#D64550"></i><i></i><i style="background:#F2C230"></i>
+          <i></i><i style="background:#4C9F70"></i><i></i>
+          <i style="background:#5B8FD9"></i><i></i><i style="background:#E884A8"></i>
+        </div>
       </div>
     </a>
 
