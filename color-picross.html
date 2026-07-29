@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>カラーピクロス</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #F3EDFA; }
+  body {
+    font-family: "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "Yu Gothic", sans-serif;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    color: #53386B;
+  }
+  #game { display: block; width: 100%; height: 100%; }
+
+  .screen {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: #F3EDFA; padding: 24px;
+  }
+  .screen.hidden { display: none; }
+  h1 { font-size: 30px; letter-spacing: 0.1em; }
+  .tagline { margin-top: 10px; font-size: 14px; opacity: 0.78; line-height: 1.9; }
+  .tap {
+    margin-top: 28px; font-size: 16px; font-weight: bold;
+    padding: 13px 40px; border-radius: 999px; border: none;
+    background: #53386B; color: #F3EDFA;
+  }
+  .tap:active { background: #6A4A88; }
+
+  #select {
+    justify-content: flex-start; overflow-y: auto;
+    touch-action: pan-y; padding-top: 44px; padding-bottom: 48px;
+  }
+  #select h1 { font-size: 22px; margin-bottom: 4px; }
+  .section-label {
+    margin: 18px 0 8px; font-size: 13px; font-weight: bold;
+    letter-spacing: 0.2em; opacity: 0.65;
+  }
+  .puzzle-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 340px; }
+  .puzzle-btn {
+    width: 60px; height: 60px; border-radius: 14px;
+    border: 2px solid #53386B; background: #FAF6FF;
+    color: #53386B; font-size: 15px; font-weight: bold;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .puzzle-btn.cleared { background: #53386B; color: #F3EDFA; }
+  .puzzle-btn small { font-size: 10px; font-weight: normal; margin-top: 2px; }
+  .puzzle-btn:active { transform: scale(0.95); }
+
+  #topbar {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+  }
+  #topbar.hidden { display: none; }
+  #topbar button {
+    border: 2px solid #53386B; border-radius: 10px; padding: 8px 14px;
+    background: #FAF6FF; color: #53386B; font-size: 13px; font-weight: bold;
+  }
+  #timer { font-size: 14px; font-weight: bold; letter-spacing: 0.05em; }
+
+  #tools {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px;
+  }
+  #tools.hidden { display: none; }
+  #tools button {
+    width: 56px; height: 52px; border-radius: 16px; font-size: 19px; font-weight: bold;
+    border: 3px solid rgba(83,56,107,0.25); background: #FAF6FF; color: #53386B;
+  }
+  #tools button.color-btn { color: transparent; }
+  #tools button.active { border-color: #53386B; transform: scale(1.08); }
+
+  #clear .stamp {
+    width: 110px; height: 110px; border-radius: 50%;
+    border: 4px solid #B23A48; color: #B23A48;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: bold; letter-spacing: 0.1em;
+    transform: rotate(-12deg); margin-bottom: 18px;
+    background: rgba(178, 58, 72, 0.06);
+  }
+  #clearName { font-size: 24px; font-weight: bold; margin-top: 6px; }
+  #clearTime { font-size: 14px; opacity: 0.75; margin-top: 6px; }
+  #clearCanvas { margin-top: 16px; border-radius: 10px; }
+
+  .home-link {
+    display: inline-block; margin-top: 18px;
+    font-size: 13px; font-weight: bold; opacity: 0.7;
+    text-decoration: underline; text-underline-offset: 3px; color: inherit;
+  }
+  .home-link:active { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="topbar" class="hidden">
+  <button id="backBtn">◀ もどる</button>
+  <div id="timer">0:00</div>
+  <button id="clearGridBtn">クリア</button>
+</div>
+
+<div id="tools" class="hidden"></div>
+
+<div id="title" class="screen">
+  <h1>カラーピクロス</h1>
+  <div class="tagline">色つきの数字をヒントにマスを塗って<br>カラーのドット絵を完成させましょう。<br>数字は「その色で連続して塗るマスの数」です。</div>
+  <button class="tap" id="startBtn">はじめる</button>
+  <a class="home-link" href="index.html">← ゲーム一覧へ戻る</a>
+</div>
+
+<div id="select" class="screen hidden">
+  <h1>もんだいをえらぶ</h1>
+  <div class="section-label">いりぐち ─ 5×5</div>
+  <div class="puzzle-grid" id="grid5"></div>
+  <div class="section-label">ほんばん ─ 10×10</div>
+  <div class="puzzle-grid" id="grid10"></div>
+  <div class="section-label">じょうきゅう ─ 15×15</div>
+  <div class="puzzle-grid" id="grid15"></div>
+  <a class="home-link" href="index.html">← ゲーム一覧へ戻る</a>
+</div>
+
+<div id="clear" class="screen hidden">
+  <div class="stamp">かんせい</div>
+  <canvas id="clearCanvas"></canvas>
+  <div id="clearName"></div>
+  <div id="clearTime"></div>
+  <button class="tap" id="nextBtn">もんだい一覧へ</button>
+  <a class="home-link" href="index.html">← ゲーム一覧へ戻る</a>
+</div>
+
+<script>
+(() => {
+  // ---- 問題データ ----
+  // g: '.'=空白、'1'〜'4'=pal(パレット)の色番号
+  const PUZZLES = [
+    // ===== 5×5 =====
+    { name: 'さくらんぼ', pal: ['#F0A6A6', '#A9DDBF'], g: [
+      '..2..',
+      '.2.2.',
+      '2...2',
+      '11.11',
+      '11.11'] },
+    { name: 'おはな', pal: ['#F7CBE0', '#FBE29E', '#A9DDBF'], g: [
+      '.1.1.',
+      '.121.',
+      '.111.',
+      '..3..',
+      '..3..'] },
+    { name: 'アイス', pal: ['#F7CBE0', '#E0BE8E'], g: [
+      '.111.',
+      '11111',
+      '.222.',
+      '.222.',
+      '..2..'] },
+    { name: 'てんとうむし', pal: ['#F0A6A6', '#8D8D95'], g: [
+      '..2..',
+      '.111.',
+      '12121',
+      '11111',
+      '.111.'] },
+    { name: 'ふうせん', pal: ['#AECBEF', '#CBAE7C'], g: [
+      '.111.',
+      '11111',
+      '.111.',
+      '..2..',
+      '..2..'] },
+
+    // ===== 10×10 =====
+    { name: 'にじ', pal: ['#F0A6A6', '#FBE29E', '#A9DDBF', '#AECBEF'], g: [
+      '..111111..',
+      '.12222221.',
+      '.12333321.',
+      '1234..4321',
+      '1234..4321',
+      '1234..4321',
+      '1234..4321',
+      '1234..4321',
+      '1234..4321',
+      '1234..4321'] },
+    { name: 'りんご', pal: ['#F0A6A6', '#A9DDBF', '#C9A67C'], g: [
+      '.....3....',
+      '.....3....',
+      '...223....',
+      '.11111111.',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '.11111111.',
+      '..111111..'] },
+    { name: 'くるま', pal: ['#AECBEF', '#8D8D95', '#D6EEF8'], g: [
+      '..........',
+      '..........',
+      '...1111...',
+      '..133331..',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '.22....22.',
+      '.22....22.',
+      '..........'] },
+    { name: 'でんしゃ', pal: ['#A9DDBF', '#FBE29E', '#8D8D95'], g: [
+      '..........',
+      '..........',
+      '.11111111.',
+      '.12211221.',
+      '.11111111.',
+      '.11111111.',
+      '.11111111.',
+      '..3....3..',
+      '3333333333',
+      '..........'] },
+    { name: 'プリン', pal: ['#E0BE8E', '#FBE29E', '#F0A6A6', '#AECBEF'], g: [
+      '..........',
+      '....33....',
+      '..111111..',
+      '.11111111.',
+      '.22222222.',
+      '.22222222.',
+      '..222222..',
+      '4444444444',
+      '..........',
+      '..........'] },
+    { name: 'スイカ', pal: ['#F0A6A6', '#A9DDBF', '#8D8D95'], g: [
+      '..........',
+      '..........',
+      '1111111111',
+      '1131113111',
+      '1111111111',
+      '.11311311.',
+      '.11111111.',
+      '..222222..',
+      '...2222...',
+      '..........'] },
+    { name: 'ハンバーガー', pal: ['#E8C39A', '#A9DDBF', '#C2A184', '#FBE29E'], g: [
+      '..........',
+      '..111111..',
+      '.11111111.',
+      '.22222222.',
+      '.44444444.',
+      '.33333333.',
+      '.11111111.',
+      '..111111..',
+      '..........',
+      '..........'] },
+    { name: 'こいのぼり', pal: ['#AECBEF', '#F7CBE0', '#CBAE7C'], g: [
+      '3.........',
+      '3.........',
+      '3.1111111.',
+      '3.1212121.',
+      '3.1212121.',
+      '3.1111111.',
+      '3.........',
+      '3.........',
+      '3.........',
+      '3.........'] },
+    { name: 'とり', pal: ['#FBE29E', '#F2B888', '#AECBEF'], g: [
+      '..........',
+      '...1111...',
+      '..111111..',
+      '.11111111.',
+      '211133311.',
+      '.11133311.',
+      '..111111..',
+      '...1111...',
+      '...2..2...',
+      '..........'] },
+    { name: 'キャンディ', pal: ['#F7CBE0', '#F0A6A6', '#FBE29E'], g: [
+      '..........',
+      '..........',
+      '...1111...',
+      '3.111111.3',
+      '3312222133',
+      '3312222133',
+      '3.111111.3',
+      '...1111...',
+      '..........',
+      '..........'] },
+
+    // ===== 15×15 =====
+    { name: 'ふじさん', pal: ['#A8BFE3', '#FFFBF5', '#F2ACA6'], g: [
+      '...............',
+      '...............',
+      '...........333.',
+      '...........333.',
+      '...............',
+      '.......2.......',
+      '......222......',
+      '.....22222.....',
+      '....1111111....',
+      '...111111111...',
+      '..11111111111..',
+      '.1111111111111.',
+      '111111111111111',
+      '111111111111111',
+      '...............'] },
+    { name: 'ひまわり', pal: ['#FBE29E', '#C9A67C', '#A9DDBF'], g: [
+      '...............',
+      '.....11111.....',
+      '...111111111...',
+      '..11111111111..',
+      '..11122222111..',
+      '..11122222111..',
+      '..11122222111..',
+      '..11122222111..',
+      '..11122222111..',
+      '..11111111111..',
+      '...111111111...',
+      '.....11111.....',
+      '.......3.......',
+      '...33..3..33...',
+      '.......3.......'] },
+    { name: 'パンダ', pal: ['#8D8D95', '#FFFBF5', '#F5B7BD'], g: [
+      '...............',
+      '.111.......111.',
+      '1111.......1111',
+      '.1122222222211.',
+      '.2222222222222.',
+      '222222222222222',
+      '222111222111222',
+      '222111222111222',
+      '222222222222222',
+      '222222333222222',
+      '222222222222222',
+      '.2222222222222.',
+      '..22222222222..',
+      '...222222222...',
+      '...............'] },
+    { name: 'ペンギン', pal: ['#93A8BE', '#FFFBF5', '#F2B888'], g: [
+      '...............',
+      '.....11111.....',
+      '....1111111....',
+      '...111111111...',
+      '...111111111...',
+      '...111333111...',
+      '..11122222111..',
+      '..11222222211..',
+      '.1122222222211.',
+      '.1122222222211.',
+      '.1122222222211.',
+      '.1122222222211.',
+      '..11222222211..',
+      '..33.......33..',
+      '...............'] },
+    { name: 'ツリー', pal: ['#8FC49E', '#FBE29E', '#F0A6A6', '#C9A67C'], g: [
+      '.......2.......',
+      '......222......',
+      '.......1.......',
+      '......111......',
+      '.....11311.....',
+      '....1111111....',
+      '...111311311...',
+      '....1113111....',
+      '...111111111...',
+      '..11311111311..',
+      '.1113111113111.',
+      '111111111111111',
+      '......444......',
+      '......444......',
+      '...............'] },
+    { name: 'おすし', pal: ['#F2B888', '#FFFBF5', '#FAE0C8', '#A8BFE3'], g: [
+      '...............',
+      '...............',
+      '...............',
+      '..11111111111..',
+      '.1113111311131.',
+      '.1111111111111.',
+      '..22222222222..',
+      '.2222222222222.',
+      '.2222222222222.',
+      '..22222222222..',
+      '.4444444444444.',
+      '...............',
+      '...............',
+      '...............',
+      '...............'] },
+    { name: 'かえる', pal: ['#A6D9A6', '#FFFBF5', '#8D8D95', '#F5B7BD'], g: [
+      '...............',
+      '..111.....111..',
+      '.12221...12221.',
+      '.12321...12321.',
+      '.12221...12221.',
+      '111111111111111',
+      '111111111111111',
+      '114111111111411',
+      '111133333331111',
+      '111111111111111',
+      '.1111111111111.',
+      '..11111111111..',
+      '...............',
+      '...............',
+      '...............'] },
+    { name: 'ちょうちん', pal: ['#F0A6A6', '#D99AA0', '#E3C583'], g: [
+      '...............',
+      '.....33333.....',
+      '...111111111...',
+      '..11111111111..',
+      '.1112112112111.',
+      '111121121121111',
+      '111121121121111',
+      '111121121121111',
+      '111121121121111',
+      '.1112112112111.',
+      '..11111111111..',
+      '...111111111...',
+      '.....33333.....',
+      '.......3.......',
+      '...............'] },
+    { name: 'めだまやき', pal: ['#FFFBF5', '#FBE29E', '#8D8D95'], g: [
+      '...............',
+      '...............',
+      '....3333333....',
+      '..33333333333..',
+      '.3111111111113.',
+      '311111111111113',
+      '311112222111113',
+      '311122222211113',
+      '311122222211113',
+      '311112222111113',
+      '.3111111111113.',
+      '..33333333333..',
+      '....3333333....',
+      '...............',
+      '...............'] },
+    { name: 'みけねこ', pal: ['#F2B888', '#FFFBF5', '#C2A184', '#F5B7BD'], g: [
+      '...............',
+      '.11.........33.',
+      '111.........333',
+      '112222222222233',
+      '.2112222222222.',
+      '221112222222222',
+      '222322222223222',
+      '222222242222222',
+      '222222222222222',
+      '.2222222222222.',
+      '..22222222222..',
+      '...............',
+      '...............',
+      '...............',
+      '...............'] },
+  ];
+
+  const EMPTY = 0, MARK = -1;
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const screens = {
+    title: document.getElementById('title'),
+    select: document.getElementById('select'),
+    clear: document.getElementById('clear'),
+  };
+  const topbar = document.getElementById('topbar');
+  const tools = document.getElementById('tools');
+  const timerEl = document.getElementById('timer');
+
+  // ---- 効果音(合成音・ファイル不要) ----
+  let audio = null;
+  function initAudio() {
+    try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  function beep(freq, dur, type = 'sine', vol = 0.12, delay = 0) {
+    if (!audio) return;
+    try {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = type; o.frequency.value = freq;
+      const t0 = audio.currentTime + delay;
+      g.gain.setValueAtTime(vol, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      o.connect(g); g.connect(audio.destination);
+      o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+  }
+  function sfxFill() { beep(520, 0.05, 'sine', 0.08); }
+  function sfxErase() { beep(320, 0.05, 'sine', 0.06); }
+  function sfxMark() { beep(420, 0.04, 'triangle', 0.06); }
+  function sfxLineDone() { beep(784, 0.09, 'sine', 0.12); beep(988, 0.12, 'sine', 0.1, 0.06); }
+  function sfxClear() {
+    [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.18, 'sine', 0.14, i * 0.09));
+  }
+
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  let state = 'title';
+  let cur = -1;
+  let N = 5;
+  let pal = [];
+  let sol = [];               // 解 0 or 1..4
+  let grid = [];              // プレイヤー入力 0 / -1 / 1..4
+  let rowClues = [], colClues = [];
+  let tool = 1;               // 1..4=色番号、MARK=しるし
+  let completedLines = new Set();
+  let cleared = PUZZLES.map(() => false);
+  let bestTimes = PUZZLES.map(() => null);
+  let startTime = 0, elapsed = 0, timerId = null;
+
+  // ---- 保存データ(ブラウザ内、このアプリだけに保存) ----
+  const STORAGE_KEY = 'color-picross-progress-v1';
+  function saveProgress() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ cleared, bestTimes }));
+    } catch (e) { /* 保存できない環境では何もしない */ }
+  }
+  function loadProgress() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.cleared) && data.cleared.length === PUZZLES.length) cleared = data.cleared;
+      if (Array.isArray(data.bestTimes) && data.bestTimes.length === PUZZLES.length) bestTimes = data.bestTimes;
+    } catch (e) { /* 壊れたデータは無視して最初から */ }
+  }
+  loadProgress();
+
+  function show(name) {
+    for (const k of Object.keys(screens)) screens[k].classList.toggle('hidden', k !== name);
+    const playing = name === null;
+    topbar.classList.toggle('hidden', !playing);
+    tools.classList.toggle('hidden', !playing);
+  }
+
+  // 色つきの連続数を求める: [{n, c}]
+  function clueOf(cells) {
+    const runs = [];
+    let n = 0, c = 0;
+    for (const v of cells) {
+      if (v > 0) {
+        if (v === c) n++;
+        else { if (n) runs.push({ n, c }); n = 1; c = v; }
+      } else {
+        if (n) { runs.push({ n, c }); n = 0; c = 0; }
+      }
+    }
+    if (n) runs.push({ n, c });
+    return runs.length ? runs : [{ n: 0, c: 0 }];
+  }
+
+  function buildTools() {
+    tools.innerHTML = '';
+    pal.forEach((color, idx) => {
+      const b = document.createElement('button');
+      b.className = 'color-btn' + (tool === idx + 1 ? ' active' : '');
+      b.style.background = color;
+      b.textContent = '●';
+      b.addEventListener('pointerdown', e => {
+        e.stopPropagation();
+        tool = idx + 1;
+        updateToolButtons();
+      });
+      tools.appendChild(b);
+    });
+    const xb = document.createElement('button');
+    xb.id = 'xTool';
+    xb.textContent = '✕';
+    xb.className = tool === MARK ? 'active' : '';
+    xb.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      tool = MARK;
+      updateToolButtons();
+    });
+    tools.appendChild(xb);
+  }
+  function updateToolButtons() {
+    [...tools.children].forEach((b, i) => {
+      const isColor = i < pal.length;
+      const active = isColor ? tool === i + 1 : tool === MARK;
+      b.classList.toggle('active', active);
+    });
+  }
+
+  function loadPuzzle(i) {
+    cur = i;
+    const p = PUZZLES[i];
+    N = p.g.length;
+    pal = p.pal;
+    sol = p.g.map(row => [...row].map(ch => ch === '.' ? 0 : Number(ch)));
+    grid = Array.from({ length: N }, () => Array(N).fill(EMPTY));
+    rowClues = sol.map(clueOf);
+    colClues = Array.from({ length: N }, (_, c) => clueOf(sol.map(r => r[c])));
+    completedLines = new Set();
+    tool = 1;
+    buildTools();
+    startTime = Date.now(); elapsed = 0;
+    clearInterval(timerId);
+    timerId = setInterval(() => {
+      elapsed = Math.floor((Date.now() - startTime) / 1000);
+      timerEl.textContent = fmt(elapsed);
+    }, 500);
+    timerEl.textContent = '0:00';
+    state = 'play';
+    show(null);
+  }
+
+  const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+  function sameClue(a, b) {
+    return a.length === b.length && a.every((r, i) => r.n === b[i].n && r.c === b[i].c);
+  }
+  function lineOk(cells, clue) {
+    return sameClue(clueOf(cells.map(v => v > 0 ? v : 0)), clue);
+  }
+
+  function checkWin() {
+    for (let r = 0; r < N; r++) if (!lineOk(grid[r], rowClues[r])) return false;
+    for (let c = 0; c < N; c++) if (!lineOk(grid.map(row => row[c]), colClues[c])) return false;
+    return true;
+  }
+
+  function win() {
+    clearInterval(timerId);
+    cleared[cur] = true;
+    sfxClear();
+    const isBest = bestTimes[cur] === null || elapsed < bestTimes[cur];
+    if (isBest) bestTimes[cur] = elapsed;
+    saveProgress();
+    state = 'clear';
+    document.getElementById('clearName').textContent = `「${PUZZLES[cur].name}」`;
+    document.getElementById('clearTime').textContent =
+      `タイム ${fmt(elapsed)}` + (isBest ? '(自己ベスト更新!)' : ` / ベスト ${fmt(bestTimes[cur])}`);
+    drawClearArt();
+    setTimeout(() => show('clear'), 600);
+    buildSelect();
+  }
+
+  function drawClearArt() {
+    const cc = document.getElementById('clearCanvas');
+    const px = Math.min(18, Math.floor(160 / N));
+    cc.width = N * px * DPR; cc.height = N * px * DPR;
+    cc.style.width = N * px + 'px'; cc.style.height = N * px + 'px';
+    const c2 = cc.getContext('2d');
+    c2.setTransform(DPR, 0, 0, DPR, 0, 0);
+    c2.fillStyle = '#FAF6FF';
+    c2.fillRect(0, 0, N * px, N * px);
+    for (let r = 0; r < N; r++)
+      for (let c = 0; c < N; c++)
+        if (sol[r][c]) {
+          c2.fillStyle = pal[sol[r][c] - 1];
+          c2.fillRect(c * px, r * px, px, px);
+        }
+  }
+
+  // ---- 問題選択画面 ----
+  function buildSelect() {
+    const g5 = document.getElementById('grid5');
+    const g10 = document.getElementById('grid10');
+    const g15 = document.getElementById('grid15');
+    g5.innerHTML = ''; g10.innerHTML = ''; g15.innerHTML = '';
+    PUZZLES.forEach((p, i) => {
+      const b = document.createElement('button');
+      b.className = 'puzzle-btn' + (cleared[i] ? ' cleared' : '');
+      b.innerHTML = cleared[i] ? `✔<small>${p.name}${bestTimes[i] !== null ? ' ' + fmt(bestTimes[i]) : ''}</small>` : `${i + 1}<small>？？？</small>`;
+      b.addEventListener('pointerdown', e => { e.stopPropagation(); loadPuzzle(i); });
+      (p.g.length === 5 ? g5 : p.g.length === 10 ? g10 : g15).appendChild(b);
+    });
+  }
+
+  // ---- レイアウト計算 ----
+  function layout() {
+    const maxRowClue = Math.max(...rowClues.map(c => c.length));
+    const maxColClue = Math.max(...colClues.map(c => c.length));
+    const cell = Math.floor(Math.min(
+      (W - 20) / (N + maxRowClue * 0.9),
+      (H * 0.58) / (N + maxColClue * 0.9)
+    ));
+    const clueW = Math.ceil(maxRowClue * cell * 0.9);
+    const clueH = Math.ceil(maxColClue * cell * 0.9);
+    const bx = Math.round((W - (clueW + cell * N)) / 2) + clueW;
+    const by = Math.round(H * 0.12) + clueH;
+    return { cell, clueW, clueH, bx, by };
+  }
+
+  // ヒントの数字(色つき・読みやすいように薄いふちどり)
+  function clueText(n, color, x, y, size, dim) {
+    ctx.font = `bold ${size}px "Hiragino Maru Gothic ProN", sans-serif`;
+    ctx.globalAlpha = dim ? 0.3 : 1;
+    ctx.lineWidth = Math.max(2, size * 0.16);
+    ctx.strokeStyle = 'rgba(83,56,107,0.35)';
+    ctx.strokeText(n, x, y);
+    ctx.fillStyle = color;
+    ctx.fillText(n, x, y);
+    ctx.globalAlpha = 1;
+  }
+
+  // ---- 描画 ----
+  function draw() {
+    ctx.fillStyle = '#F3EDFA';
+    ctx.fillRect(0, 0, W, H);
+    if (state !== 'play') { requestAnimationFrame(draw); return; }
+
+    const { cell, bx, by } = layout();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 盤面下地
+    ctx.fillStyle = '#FAF6FF';
+    ctx.fillRect(bx - 2, by - 2, cell * N + 4, cell * N + 4);
+
+    // マス
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const x = bx + c * cell, y = by + r * cell;
+        const v = grid[r][c];
+        if (v > 0) {
+          ctx.fillStyle = pal[v - 1];
+          ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+        } else if (v === MARK) {
+          ctx.strokeStyle = '#BBA8D0';
+          ctx.lineWidth = 2;
+          const m = cell * 0.28;
+          ctx.beginPath();
+          ctx.moveTo(x + m, y + m); ctx.lineTo(x + cell - m, y + cell - m);
+          ctx.moveTo(x + cell - m, y + m); ctx.lineTo(x + m, y + cell - m);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // 罫線(5マスごとに太線)
+    for (let i = 0; i <= N; i++) {
+      const bold = i % 5 === 0;
+      ctx.strokeStyle = bold ? '#53386B' : 'rgba(83,56,107,0.25)';
+      ctx.lineWidth = bold ? 2 : 1;
+      ctx.beginPath();
+      ctx.moveTo(bx + i * cell, by); ctx.lineTo(bx + i * cell, by + N * cell);
+      ctx.moveTo(bx, by + i * cell); ctx.lineTo(bx + N * cell, by + i * cell);
+      ctx.stroke();
+    }
+
+    const fsize = Math.round(cell * 0.48);
+
+    // 行ヒント(左)
+    for (let r = 0; r < N; r++) {
+      const ok = lineOk(grid[r], rowClues[r]);
+      const clue = rowClues[r];
+      clue.forEach((run, i) => {
+        const x = bx - (clue.length - i - 0.5) * cell * 0.9 - 4;
+        const col = run.c ? pal[run.c - 1] : 'rgba(83,56,107,0.6)';
+        clueText(run.n, col, x, by + r * cell + cell / 2, fsize, ok);
+      });
+    }
+
+    // 列ヒント(上)
+    for (let c = 0; c < N; c++) {
+      const colCells = grid.map(row => row[c]);
+      const ok = lineOk(colCells, colClues[c]);
+      const clue = colClues[c];
+      clue.forEach((run, i) => {
+        const y = by - (clue.length - i - 0.5) * cell * 0.9 - 4;
+        const col = run.c ? pal[run.c - 1] : 'rgba(83,56,107,0.6)';
+        clueText(run.n, col, bx + c * cell + cell / 2, y, fsize, ok);
+      });
+    }
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  // ---- 入力 ----
+  let painting = null;   // { action, color } ドラッグ中の操作
+
+  function cellAt(x, y) {
+    const { cell, bx, by } = layout();
+    const c = Math.floor((x - bx) / cell);
+    const r = Math.floor((y - by) / cell);
+    if (r < 0 || r >= N || c < 0 || c >= N) return null;
+    return { r, c };
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    if (state !== 'play') return;
+    const p = cellAt(e.clientX, e.clientY);
+    if (!p) return;
+    const v = grid[p.r][p.c];
+    let action;
+    if (tool === MARK) action = { type: v === MARK ? 'erase' : 'mark' };
+    else action = v === tool ? { type: 'erase' } : { type: 'fill', color: tool };
+    painting = action;
+    paint(p.r, p.c);
+  });
+
+  window.addEventListener('pointermove', e => {
+    if (!painting || state !== 'play') return;
+    const p = cellAt(e.clientX, e.clientY);
+    if (p) paint(p.r, p.c);
+  });
+
+  window.addEventListener('pointerup', () => {
+    if (painting && state === 'play' && checkWin()) win();
+    painting = null;
+  });
+  window.addEventListener('pointercancel', () => { painting = null; });
+
+  function paint(r, c) {
+    const v = grid[r][c];
+    if (painting.type === 'fill' && v !== painting.color) { grid[r][c] = painting.color; sfxFill(); }
+    else if (painting.type === 'mark' && v === EMPTY) { grid[r][c] = MARK; sfxMark(); }
+    else if (painting.type === 'erase' && v !== EMPTY) { grid[r][c] = EMPTY; sfxErase(); }
+    updateLineCompletion();
+  }
+
+  function updateLineCompletion() {
+    for (let r = 0; r < N; r++) {
+      const id = 'r' + r, ok = lineOk(grid[r], rowClues[r]);
+      if (ok && !completedLines.has(id)) {
+        completedLines.add(id); sfxLineDone();
+        for (let c = 0; c < N; c++) if (grid[r][c] === EMPTY) grid[r][c] = MARK;
+      } else if (!ok && completedLines.has(id)) completedLines.delete(id);
+    }
+    for (let c = 0; c < N; c++) {
+      const id = 'c' + c, ok = lineOk(grid.map(row => row[c]), colClues[c]);
+      if (ok && !completedLines.has(id)) {
+        completedLines.add(id); sfxLineDone();
+        for (let r = 0; r < N; r++) if (grid[r][c] === EMPTY) grid[r][c] = MARK;
+      } else if (!ok && completedLines.has(id)) completedLines.delete(id);
+    }
+  }
+
+  // ---- ボタン ----
+  document.getElementById('backBtn').addEventListener('pointerdown', () => {
+    clearInterval(timerId);
+    state = 'select';
+    show('select');
+  });
+  document.getElementById('clearGridBtn').addEventListener('pointerdown', () => {
+    grid = Array.from({ length: N }, () => Array(N).fill(EMPTY));
+    completedLines = new Set();
+  });
+  document.getElementById('startBtn').addEventListener('pointerdown', () => {
+    initAudio();
+    state = 'select';
+    buildSelect();
+    show('select');
+  });
+  document.getElementById('nextBtn').addEventListener('pointerdown', () => {
+    state = 'select';
+    show('select');
+  });
+})();
+</script>
+</body>
+</html>
